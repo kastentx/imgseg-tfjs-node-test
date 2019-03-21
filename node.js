@@ -18,7 +18,6 @@ module.exports = function(RED) {
     "use strict";
     var util = require("util");
     var vm = require("vm");
-    var { predict } = require('@codait/max-image-segmenter');
 
     function sendResults(node,_msgid,msgs) {
         if (msgs == null) {
