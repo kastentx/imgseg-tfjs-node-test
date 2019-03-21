@@ -18,6 +18,7 @@ module.exports = function(RED) {
     "use strict";
     var util = require("util");
     var vm = require("vm");
+    var { predict } = require('@codait/max-image-segmenter');
 
     function sendResults(node,_msgid,msgs) {
         if (msgs == null) {
@@ -58,21 +59,27 @@ module.exports = function(RED) {
         var node = this;
         this.name = n.name;
         this.func = n.func;
-        var functionText = "var results = null;"+
-                           "results = (function(msg){ "+
-                              "var __msgid__ = msg._msgid;"+
-                              "var node = {"+
-                                 "log:__node__.log,"+
-                                 "error:__node__.error,"+
-                                 "warn:__node__.warn,"+
-                                 "debug:__node__.debug,"+
-                                 "trace:__node__.trace,"+
-                                 "on:__node__.on,"+
-                                 "status:__node__.status,"+
-                                 "send:function(msgs){ __node__.send(__msgid__,msgs);}"+
-                              "};\n"+
-                              "// name: Unnamed function\n// outputs: 1\nconst { predict } = global.get(\'max\');\n\nconst response = predict(msg.payload)\n  .then(res => {\n      node.send(res)\n  })"+"\n"+
-                           "})(msg);";
+        var functionText = `((require) => {    
+                                var results = null;
+                                results = (function(msg){ 
+                                var __msgid__ = msg._msgid;
+                                var node = {
+                                    log:__node__.log,
+                                    error:__node__.error,
+                                    warn:__node__.warn,
+                                    debug:__node__.debug,
+                                    trace:__node__.trace,
+                                    on:__node__.on,
+                                    status:__node__.status,
+                                    send:function(msgs){ __node__.send(__msgid__,msgs);}
+                                };
+                                // name: Unnamed function
+                                // outputs: 1
+                                const { predict } = require('@codait/max-image-segmenter');
+                                const response = predict(msg.payload)
+                                    .then(res => {
+                                        node.send(res)  })})(msg);
+                            })`;
         this.topic = n.topic;
         this.outstandingTimers = [];
         this.outstandingIntervals = [];
@@ -217,7 +224,7 @@ module.exports = function(RED) {
                 try {
                     var start = process.hrtime();
                     context.msg = msg;
-                    this.script.runInContext(context);
+                    this.script.runInContext(context)(require);
                     sendResults(this,msg._msgid,context.results);
 
                     var duration = process.hrtime(start);
